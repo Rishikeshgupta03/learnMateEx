@@ -7,6 +7,15 @@
   let selectedText = "";
   let timer = null;
 
+  // 1. AAPKA VERCEL BACKEND URL (Yahan storage ki zarurat nahi hai)
+  const BACKEND_URL = "https://learn-mate-ex.vercel.app/";
+
+  // 2. TEMPORARY CUSTOM PROMPTS (Bina storage ke memory me rahenge)
+  // Agar aapke paas koi saved prompt hai toh aap is array me daal sakte hain
+  const temporaryPrompts = [
+    { name: "Explain in Hindi", prompt: "Explain the following text in simple Hindi language." },
+    { name: "Bullet Points", prompt: "Summarize this into clear bullet points." }
+  ];
 
   // -----------------------------
   // REMOVE ELEMENTS
@@ -142,42 +151,36 @@
 
 
   // -----------------------------
-  // LOAD CUSTOM PROMPTS
+  // LOAD CUSTOM PROMPTS (Ab ye array se uthayega, storage se nahi)
   // -----------------------------
 
-  async function loadCustomPrompts() {
+  function loadCustomPrompts() {
     const list = document.getElementById("lm-custom-list");
-    try {
-      const settings = await chrome.storage.local.get({ customPrompts: [] });
-      const prompts = settings.customPrompts;
-
-      if (!prompts.length) {
-        list.innerHTML = `<div class="lm-empty">No saved prompts yet.</div>`;
-        return;
-      }
-
-      list.innerHTML = "";
-
-      prompts.forEach(prompt => {
-        const button = document.createElement("button");
-        button.className = "lm-custom-button";
-        button.innerText = "⚡ " + prompt.name;
-
-        button.onclick = (e) => {
-          e.stopPropagation();
-          askGemini(null, prompt.prompt);
-        };
-
-        list.appendChild(button);
-      });
-    } catch (error) {
-      console.error("LearnMate prompt error:", error);
+    
+    if (!temporaryPrompts.length) {
+      list.innerHTML = `<div class="lm-empty">No temporary prompts.</div>`;
+      return;
     }
+
+    list.innerHTML = "";
+
+    temporaryPrompts.forEach(prompt => {
+      const button = document.createElement("button");
+      button.className = "lm-custom-button";
+      button.innerText = "⚡ " + prompt.name;
+
+      button.onclick = (e) => {
+        e.stopPropagation();
+        askGemini(null, prompt.prompt);
+      };
+
+      list.appendChild(button);
+    });
   }
 
 
   // -----------------------------
-  // GEMINI REQUEST
+  // GEMINI REQUEST (Pure temporary aur clean URL handling)
   // -----------------------------
 
   async function askGemini(action, customPrompt) {
@@ -186,17 +189,13 @@
     result.innerText = "Gemini is thinking...";
 
     try {
-      // Default URL bina kisi trailing slash ke set karein
-      const settings = await chrome.storage.local.get({ backendUrl: "https://learn-mate-ex.vercel.app" });
-      
-      // Kisi bhi double slash '//' ki galti ko automatically filter karne ka logic
-      let cleanBaseUrl = settings.backendUrl.trim();
+      let cleanBaseUrl = BACKEND_URL.trim();
       if (cleanBaseUrl.endsWith('/')) {
         cleanBaseUrl = cleanBaseUrl.slice(0, -1);
       }
       
       const targetUrl = cleanBaseUrl + "/api/ask";
-      console.log("Sending request to:", targetUrl);
+      console.log("Sending temporary request to:", targetUrl);
 
       const response = await fetch(targetUrl, {
         method: "POST",
