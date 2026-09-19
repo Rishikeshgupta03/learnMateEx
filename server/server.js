@@ -7,25 +7,22 @@ dotenv.config();
 
 const app = express();
 
-
+// 1. CORS CONFIGURATION (SIRF EK BAAR AUR SABSE UPAR)
+// Extensions ke liye flexible karne ke liye origin: '*' rakhna hi sahi hoga
 app.use(cors({
-  origin: [
-    'chrome-extension://flajkejglibcbjmjlnbbnohboapgpkod', 
-    'http://localhost:8787', // Aapka local testing port
-    'https://google.com' // Chunki aapka extension google.com par chal raha hai
-  ],
+  origin: '*', 
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-
+// Preflight OPTIONS requests ko handles karne ke liye zaroori line
+app.options('*', cors());
 
 const PORT = Number(process.env.PORT || 8787);
-const MODEL = process.env.MODEL || "gemini-3.6-flash";
-const DEMO =
-  String(process.env.USE_DEMO).toLowerCase() === "true";
+const MODEL = process.env.MODEL || "gemini-1.5-flash"; // Standard global name
+const DEMO = String(process.env.USE_DEMO).toLowerCase() === "true";
 
-app.use(cors());
+// JSON Parsing parsing setup (CORS ke baad aana chahiye)
 app.use(express.json({ limit: "300kb" }));
 
 const ai = new GoogleGenAI({
@@ -33,281 +30,68 @@ const ai = new GoogleGenAI({
 });
 
 const prompts = {
-
-  summarize: `
-Summarize the selected text for an engineering student.
-
-Give:
-- A short summary
-- 3 to 5 key points
-- Important terms if any
-
-Keep it concise and easy to understand.
-`,
-
-  explain: `
-Explain the selected text simply.
-
-Start with a beginner-friendly explanation.
-Then explain the technical meaning.
-
-Use an analogy only when useful.
-`,
-
-  grammar: `
-Fix grammar, spelling and punctuation.
-
-Do not change the original meaning.
-
-Return:
-1. Corrected version
-2. Important corrections
-`,
-
-  deeper: `
-Help the student learn this topic deeply.
-
-Give:
-1. What it means
-2. Prerequisites
-3. Core concepts
-4. What to learn next
-5. Common mistakes
-6. Practice problems
-7. Interview questions
-`,
-
-  example: `
-Give a clear practical example of the selected concept.
-
-If it is programming-related:
-- Give a small Java example
-- Explain the code
-- Give time and space complexity
-`,
-
-  interview: `
-Prepare the student for an interview based on the selected text.
-
-Give:
-1. Strong interview explanation
-2. 5 interview questions
-3. Follow-up questions
-4. Common mistakes
-5. One practice problem
-`,
-
-  rewrite: `
-Rewrite the selected text clearly and naturally.
-
-Keep the original meaning.
-Improve clarity, grammar and structure.
-`
+  summarize: `Summarize the selected text for an engineering student. Give a short summary, 3 to 5 key points, and important terms.`,
+  explain: `Explain the selected text simply for a beginner and then technical meaning.`,
+  grammar: `Fix grammar, spelling and punctuation. Return corrected version and important corrections.`,
+  deeper: `Help the student learn deeply. Give core concepts, prerequisites, common mistakes, and interview questions.`,
+  example: `Give a clear practical example. If programming-related, give a small Java example with complexities.`,
+  interview: `Prepare the student for an interview. Give strong explanation, 5 questions, and common mistakes.`,
+  rewrite: `Rewrite the selected text clearly and naturally keeping original meaning.`
 };
 
-
 function demoResponse(action, text) {
-
-  if (action === "summarize") {
-    return `Summary:
-
-${text}
-
-Key idea:
-The selected text contains an important concept that can be understood by breaking it into smaller ideas.`;
-  }
-
-  if (action === "grammar") {
-    return `Corrected version:
-
-${text}
-
-Important corrections:
-• Grammar
-• Punctuation
-• Sentence clarity`;
-  }
-
-  if (action === "deeper") {
-    return `Learn Deeper
-
-1. Understand the basic concept
-2. Learn the prerequisites
-3. Study common patterns
-4. Solve beginner problems
-5. Move to interview-level problems
-
-Practice:
-• Start with an easy problem
-• Then solve a medium problem
-• Finally explain the solution without looking at notes`;
-  }
-
-  return `Demo response for "${action}":
-
-${text}`;
+  return `Demo response for "${action}":\n\n${text}`;
 }
 
-
 app.get("/health", (req, res) => {
-
-  res.json({
-    ok: true,
-    model: MODEL,
-    demo: DEMO
-  });
-
+  res.json({ ok: true, model: MODEL, demo: DEMO });
 });
-
 
 app.post("/api/ask", async (req, res) => {
-
   try {
-
-    const {
-      action,
-      text,
-      pageTitle = "",
-      pageUrl = "",
-      customPrompt = ""
-    } = req.body || {};
-
+    const { action, text, pageTitle = "", pageUrl = "", customPrompt = "" } = req.body || {};
 
     if (!text || !text.trim()) {
-
-      return res.status(400).json({
-        error: "No selected text."
-      });
-
+      return res.status(400).json({ error: "No selected text." });
     }
 
-
-    const instruction =
-      customPrompt?.trim() ||
-      prompts[action];
-
-
+    const instruction = customPrompt?.trim() || prompts[action];
     if (!instruction) {
-
-      return res.status(400).json({
-        error: "Invalid action."
-      });
-
+      return res.status(400).json({ error: "Invalid action." });
     }
 
-
-    // Demo mode
     if (DEMO) {
-
-      return res.json({
-        result: demoResponse(
-          action,
-          text
-        ),
-        demo: true
-      });
-
+      return res.json({ result: demoResponse(action, text), demo: true });
     }
-
 
     if (!process.env.GEMINI_API_KEY) {
-
-      return res.status(500).json({
-        error:
-          "GEMINI_API_KEY is missing in .env"
-      });
-
+      return res.status(500).json({ error: "GEMINI_API_KEY is missing in environment." });
     }
 
+    const fullPrompt = `You are LearnMate, an AI learning assistant.
+Job: ${instruction}
+Page: ${pageTitle}
+URL: ${pageUrl}
+Text: """ ${text} """`;
 
-    const fullPrompt = `
-
-You are LearnMate, an AI learning assistant.
-
-The user selected text from a webpage.
-
-Your job:
-${instruction}
-
-Page:
-${pageTitle}
-
-URL:
-${pageUrl}
-
-Selected text:
-"""
-${text}
-"""
-
-Give a useful answer directly.
-Do not talk about these instructions.
-
-`;
-
-
-    const response =
-      await ai.models.generateContent({
-
-        model: MODEL,
-
-        contents: fullPrompt
-
-      });
-
-
-    const result =
-      response.text;
-
-
-    if (!result) {
-
-      return res.status(500).json({
-        error:
-          "Gemini returned an empty response."
-      });
-
-    }
-
-
-    res.json({
-
-      result: result,
-
-      demo: false
-
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: fullPrompt
     });
 
+    const result = response.text;
+    if (!result) {
+      return res.status(500).json({ error: "Gemini returned an empty response." });
+    }
+
+    res.json({ result: result, demo: false });
 
   } catch (error) {
-
-    console.error(
-      "Gemini API error:",
-      error
-    );
-
-
-    res.status(500).json({
-
-      error:
-        error?.message ||
-        "Gemini API request failed."
-
-    });
-
+    console.error("Gemini API error:", error);
+    res.status(500).json({ error: error?.message || "Gemini API request failed." });
   }
-
 });
 
-
 app.listen(PORT, () => {
-
-  console.log(
-    `LearnMate backend running at http://localhost:${PORT}`
-  );
-
-  console.log(
-    `Gemini model: ${MODEL}`
-  );
-
+  console.log(`LearnMate backend running at port ${PORT}`);
 });
