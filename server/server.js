@@ -95,3 +95,4 @@ Text: """ ${text} """`;
 app.listen(PORT, () => {
   console.log(`LearnMate backend running at port ${PORT}`);
 });
+export default app;
