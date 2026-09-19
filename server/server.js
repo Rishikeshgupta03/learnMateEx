@@ -7,6 +7,19 @@ dotenv.config();
 
 const app = express();
 
+
+app.use(cors({
+  origin: [
+    'chrome-extension://flajkejglibcbjmjlnbbnohboapgpkod', 
+    'http://localhost:8787', // Aapka local testing port
+    'https://google.com' // Chunki aapka extension google.com par chal raha hai
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+
+
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.MODEL || "gemini-3.6-flash";
 const DEMO =

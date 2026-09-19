@@ -186,8 +186,19 @@
     result.innerText = "Gemini is thinking...";
 
     try {
-      const settings = await chrome.storage.local.get({ backendUrl: "http://localhost:8787" });
-      const response = await fetch(settings.backendUrl + "/api/ask", {
+      // Default URL bina kisi trailing slash ke set karein
+      const settings = await chrome.storage.local.get({ backendUrl: "https://learn-mate-ex.vercel.app" });
+      
+      // Kisi bhi double slash '//' ki galti ko automatically filter karne ka logic
+      let cleanBaseUrl = settings.backendUrl.trim();
+      if (cleanBaseUrl.endsWith('/')) {
+        cleanBaseUrl = cleanBaseUrl.slice(0, -1);
+      }
+      
+      const targetUrl = cleanBaseUrl + "/api/ask";
+      console.log("Sending request to:", targetUrl);
+
+      const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -203,8 +214,7 @@
       if (!response.ok) throw new Error(data.error || "Gemini request failed");
 
       result.className = "";
-
-result.innerHTML = data.result ? parseMarkdown(data.result) : "No result returned.";
+      result.innerHTML = data.result ? parseMarkdown(data.result) : "No result returned.";
 
     } catch (error) {
       console.error("LearnMate Gemini error:", error);
@@ -237,7 +247,6 @@ result.innerHTML = data.result ? parseMarkdown(data.result) : "No result returne
     bubble.style.top = `${rect.bottom + window.scrollY + 8}px`;
     bubble.style.left = `${Math.max(8, Math.min(rect.left + window.scrollX, window.scrollX + window.innerWidth - 160))}px`;
 
-    
     bubble.onmousedown = (event) => {
       event.preventDefault();
       event.stopPropagation(); 
@@ -247,24 +256,19 @@ result.innerHTML = data.result ? parseMarkdown(data.result) : "No result returne
   }
 
   document.addEventListener("mousedown", (event) => {
-   
     if (bubble && bubble.contains(event.target)) {
       return;
     }
 
-    
     if (popup && popup.contains(event.target)) {
       return;
     }
 
-    
     removeBubble();
     removePopup();
   });
 
-  
   document.addEventListener("mouseup", (event) => {
-   
     if ((popup && popup.contains(event.target)) || (bubble && bubble.contains(event.target))) {
       return;
     }
@@ -280,36 +284,26 @@ result.innerHTML = data.result ? parseMarkdown(data.result) : "No result returne
 })();
 
 
-  // -----------------------------
-  // MARKDOWN TO HTML PARSER
-  // -----------------------------
-  function parseMarkdown(text) {
-    if (!text) return "";
+// -----------------------------
+// MARKDOWN TO HTML PARSER
+// -----------------------------
+function parseMarkdown(text) {
+  if (!text) return "";
 
-    let html = text;
+  let html = text;
 
-     
-    html = html
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+  html = html
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-     
-    html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>\$1</strong>");
 
-     
-    html = html.replace(/^\s*[\*\-]\s+(.*)$/gm, "<li>$1</li>");
-    
-     
-    if (html.includes("<li>")) {
-     
-    }
+  html = html.replace(/^\s*[\*\-]\s+(.*)\$/gm, "<li>\$1</li>");
+  
+  html = html.replace(/`(.*?)`/g, "<code>\$1</code>");
 
-     
-    html = html.replace(/`(.*?)`/g, "<code>$1</code>");
+  html = html.replace(/\n/g, "<br>");
 
-     
-    html = html.replace(/\n/g, "<br>");
-
-    return html;
-  }
+  return html;
+}

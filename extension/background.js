@@ -7,7 +7,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   await chrome.storage.local.set({
     enabled: existing.enabled ?? true,
-    backendUrl: existing.backendUrl ?? "http://localhost:8787",
+    backendUrl: existing.backendUrl ?? "https://learn-mate-ex.vercel.app",
     customPrompts: existing.customPrompts ?? []
   });
 
@@ -23,7 +23,7 @@ chrome.runtime.onMessage.addListener(
       chrome.storage.local
         .get({
           enabled: true,
-          backendUrl: "http://localhost:8787",
+          backendUrl: "https://learn-mate-ex.vercel.app",
           customPrompts: []
         })
         .then(sendResponse);
